@@ -1,4 +1,4 @@
-myTidyData <- read.table("tidydata.txt",header=TRUE,stringsAsFactors = FALSE)
+TidyData <- read.table("tidydata.txt",header=TRUE,stringsAsFactors = FALSE)
 > View(TidyData)
 > TidyData
     subject       activityName activityNum timeBodyAccelerometer.MEAN...X
