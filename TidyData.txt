@@ -1,6 +1,6 @@
 myTidyData <- read.table("tidydata.txt",header=TRUE,stringsAsFactors = FALSE)
-> View(myTidyData)
-> myTidyData
+> View(TidyData)
+> TidyData
     subject       activityName activityNum timeBodyAccelerometer.MEAN...X
 1         1             LAYING           6                      0.2215982
 2         1            SITTING           4                      0.2612376
