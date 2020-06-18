@@ -1,0 +1,209 @@
+filesPath <- "C:/Users/percy/Desktop/coursera/Getting and Cleaning Data/assignment data cleaning 1"
+setwd(filesPath)
+
+if(!file.exists("./data")){dir.create("./data")}
+fileUrl <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+download.file(fileUrl,destfile="./data/Dataset.zip")
+###### Manipulaton of Directories and File Permissions###############
+
+Description
+
+These functions provide a low-level interface to the computer's file system.
+
+Usage
+
+dir.exists(paths)
+dir.create(path, showWarnings = TRUE, recursive = FALSE, mode = "0777")
+Sys.chmod(paths, mode = "0777", use_umask = TRUE)
+Sys.umask(mode = NA)
+#########################################################################
+###Unzip DataSet to /data directory
+unzip(zipfile="./data/Dataset.zip",exdir="./data")
+
+###Load required packages
+library(dplyr)
+library(data.table)
+library(tidyr)
+
+filesPath <- "C:/Users/percy/Desktop/coursera/Getting and Cleaning Data/assignment data cleaning 1/UCI HAR Dataset"
+# Read subject files
+
+###########  read.table#########################
+
+Description
+
+Reads a file in table format and creates a data frame from it, with cases corresponding to lines and variables to fields in the file.
+
+Usage
+
+read.table(file, header = FALSE, sep = "", quote = "\"'",
+           dec = ".", numerals = c("allow.loss", "warn.loss", "no.loss"),
+           row.names, col.names, as.is = !stringsAsFactors,
+           na.strings = "NA", colClasses = NA, nrows = -1,
+           skip = 0, check.names = TRUE, fill = !blank.lines.skip,
+           strip.white = FALSE, blank.lines.skip = TRUE,
+           comment.char = "#",
+           allowEscapes = FALSE, flush = FALSE,
+           stringsAsFactors = default.stringsAsFactors(),
+           fileEncoding = "", encoding = "unknown", text, skipNul = FALSE)
+
+read.csv(file, header = TRUE, sep = ",", quote = "\"",
+         dec = ".", fill = TRUE, comment.char = "", ...)
+
+read.csv2(file, header = TRUE, sep = ";", quote = "\"",
+          dec = ",", fill = TRUE, comment.char = "", ...)
+
+read.delim(file, header = TRUE, sep = "\t", quote = "\"",
+           dec = ".", fill = TRUE, comment.char = "", ...)
+
+read.delim2(file, header = TRUE, sep = "\t", quote = "\"",
+            dec = ",", fill = TRUE, comment.char = "", ...)
+###################################################################################################
+dataSubjectTrain <- tbl_df(read.table(file.path(filesPath, "train", "subject_train.txt")))
+dataSubjectTest  <- tbl_df(read.table(file.path(filesPath, "test" , "subject_test.txt" )))
+
+# Read activity files
+dataActivityTrain <- tbl_df(read.table(file.path(filesPath, "train", "Y_train.txt")))
+dataActivityTest  <- tbl_df(read.table(file.path(filesPath, "test" , "Y_test.txt" )))
+
+#Read data files.
+dataTrain <- tbl_df(read.table(file.path(filesPath, "train", "X_train.txt" )))
+dataTest  <- tbl_df(read.table(file.path(filesPath, "test" , "X_test.txt" )))
+
+#1. Merges the training and the test sets to create one data set.
+############## RBIND#######################
+Combine R Objects by Rows or Columns
+
+Description
+
+Take a sequence of vector, matrix or data-frame arguments and combine by columns or rows, respectively. These are generic functions with methods for other R classes.
+
+Usage
+
+cbind(..., deparse.level = 1)
+rbind(..., deparse.level = 1)
+## S3 method for class 'data.frame'
+rbind(..., deparse.level = 1, make.row.names = TRUE,
+      stringsAsFactors = default.stringsAsFactors())
+Arguments
+
+...	
+(generalized) vectors or matrices. These can be given as named arguments. Other R objects may be coerced as appropriate, or S4 methods may be used: see sections ‘Details’ and ‘Value’. (For the "data.frame" method of cbind these can be further arguments to data.frame such as stringsAsFactors.)
+deparse.level	
+integer controlling the construction of labels in the case of non-matrix-like arguments (for the default method):
+deparse.level = 0 constructs no labels; the default,
+deparse.level = 1 or 2 constructs labels from the argument names, see the ‘Value’ section below.
+make.row.names	
+(only for data frame method:) logical indicating if unique and valid row.names should be constructed from the arguments.
+stringsAsFactors	
+logical, passed to as.data.frame; only has an effect when the ... arguments contain a (non-data.frame) character.
+#################################################################################################################################
+
+alldataSubject <- rbind(dataSubjectTrain, dataSubjectTest)
+setnames(alldataSubject, "V1", "subject")
+alldataActivity<- rbind(dataActivityTrain, dataActivityTest)
+setnames(alldataActivity, "V1", "activityNum")
+
+dataTable <- rbind(dataTrain, dataTest)
+
+
+dataFeatures <- tbl_df(read.table(file.path(filesPath, "features.txt")))
+setnames(dataFeatures, names(dataFeatures), c("featureNum", "featureName"))
+colnames(dataTable) <- dataFeatures$featureName
+
+activityLabels<- tbl_df(read.table(file.path(filesPath, "activity_labels.txt")))
+setnames(activityLabels, names(activityLabels), c("activityNum","activityName"))
+
+alldataSubjAct<- cbind(alldataSubject, alldataActivity)
+dataTable <- cbind(alldataSubjAct, dataTable)
+
+#2. Extracts only the measurements on the mean and standard deviation for each measurement.
+
+dataFeaturesMeanStd <- grep("mean\\(\\)|std\\(\\)",dataFeatures$featureName,value=TRUE) #var name
+
+dataFeaturesMeanStd <- union(c("subject","activityNum"), dataFeaturesMeanStd)
+dataTable<- subset(dataTable,select=dataFeaturesMeanStd) 
+
+# 3. Uses descriptive activity names to name the activities in the data set
+dataTable <- merge(activityLabels, dataTable , by="activityNum", all.x=TRUE)
+dataTable$activityName <- as.character(dataTable$activityName)
+
+dataTable$activityName <- as.character(dataTable$activityName)
+dataAggr<- aggregate(. ~ subject - activityName, data = dataTable, mean) 
+dataTable<- tbl_df(arrange(dataAggr,subject,activityName))
+
+##4. Appropriately labels the data set with descriptive variable names.
+  #1. leading t or f is based on time or frequency measurements.
+  #2. Body = related to body movement.
+  #3.cGravity = acceleration of gravity
+  #4. Acc = accelerometer measurement
+  #5. Gyro = gyroscopic measurements
+  #6. Jerk = sudden movement acceleration
+  #7. Mag = magnitude of movement
+  #8. mean and SD are calculated for each subject for each activity for each mean and SD measurements. The units given are g’s for the accelerometer and rad/sec for the gyro and g/sec and rad/sec/sec for the corresponding jerks.
+
+#######GSUB################################################
+Pattern Matching and Replacement
+
+Description
+
+grep, grepl, regexpr, gregexpr and regexec search for matches to argument pattern within each element of a character vector: they differ in the format of and amount of detail in the results.
+
+sub and gsub perform replacement of the first and all matches respectively.
+
+Usage
+
+grep(pattern, x, ignore.case = FALSE, perl = FALSE, value = FALSE,
+     fixed = FALSE, useBytes = FALSE, invert = FALSE)
+
+grepl(pattern, x, ignore.case = FALSE, perl = FALSE,
+      fixed = FALSE, useBytes = FALSE)
+
+sub(pattern, replacement, x, ignore.case = FALSE, perl = FALSE,
+    fixed = FALSE, useBytes = FALSE)
+
+gsub(pattern, replacement, x, ignore.case = FALSE, perl = FALSE,
+     fixed = FALSE, useBytes = FALSE)
+
+regexpr(pattern, text, ignore.case = FALSE, perl = FALSE,
+        fixed = FALSE, useBytes = FALSE)
+
+gregexpr(pattern, text, ignore.case = FALSE, perl = FALSE,
+         fixed = FALSE, useBytes = FALSE)
+
+regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
+        fixed = FALSE, useBytes = FALSE)
+##################################################################################################
+head(str(dataTable),2)
+
+names(dataTable)<-gsub("std()", "SD", names(dataTable))
+names(dataTable)<-gsub("mean()", "MEAN", names(dataTable))
+names(dataTable)<-gsub("^t", "time", names(dataTable))
+names(dataTable)<-gsub("^f", "frequency", names(dataTable))
+names(dataTable)<-gsub("Acc", "Accelerometer", names(dataTable))
+names(dataTable)<-gsub("Gyro", "Gyroscope", names(dataTable))
+names(dataTable)<-gsub("Mag", "Magnitude", names(dataTable))
+names(dataTable)<-gsub("BodyBody", "Body", names(dataTable))
+
+head(str(dataTable),6)
+
+##5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+
+#############WRITE.TABLE#######################################
+Data Output
+
+Description
+
+write.table prints its required argument x (after converting it to a data frame if it is not one nor a matrix) to a file or connection.
+
+Usage
+
+write.table(x, file = "", append = FALSE, quote = TRUE, sep = " ",
+            eol = "\n", na = "NA", dec = ".", row.names = TRUE,
+            col.names = TRUE, qmethod = c("escape", "double"),
+            fileEncoding = "")
+
+write.csv(...)
+write.csv2(...)
+################################################################
+write.table(dataTable, "TidyData.txt", row.name=FALSE)
